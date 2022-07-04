@@ -17,10 +17,16 @@ import (
 	pathToRegExp "github.com/koblas/swerver/pkg/path_to_regexp"
 )
 
-type HandlerState Configuration
+type HandlerState struct {
+	Configuration
+	logger Logger
+}
 
 func NewHandler(config Configuration) http.Handler {
-	state := HandlerState(config)
+	state := HandlerState{
+		Configuration: config,
+		logger:        NewLogger(config.Debug),
+	}
 
 	return gziphandler.GzipHandler(state)
 }
@@ -269,6 +275,8 @@ func (state HandlerState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	relativePath := r.URL.Path
 	absolutePath := filepath.Join(state.Public, relativePath)
 
+	state.logger.Debug("Request =", relativePath)
+
 	if !pathIsInside(absolutePath, state.Public) {
 		state.sendError(w, r, "/", http.StatusBadRequest)
 		return
@@ -278,6 +286,7 @@ func (state HandlerState) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	redirect, _ := state.shouldRedirect(relativePath, cleanUrl)
 
 	if redirect != nil {
+		state.logger.Debug("Redirecting", redirect)
 		http.Redirect(w, r, *redirect, http.StatusTemporaryRedirect)
 		return
 	}
@@ -432,18 +441,24 @@ func toTarget(source, destination, previousPath string) *string {
 }
 
 type fileDetails struct {
-	title    string
-	base     string
-	name     string
-	ext      string
-	dir      string
-	relative string
-	isDir    bool
+	Title    string
+	Base     string
+	Name     string
+	Ext      string
+	Dir      string
+	Size     int
+	Relative string
+	IsDir    bool
 }
 
 type pathPart struct {
 	Name string
 	Url  string
+}
+
+type breadcrumbsType struct {
+	Url  string
+	Name string
 }
 
 type renderDirResult struct {
@@ -481,6 +496,11 @@ func (state HandlerState) renderDirectory(current string, relativePath string, a
 
 	fileResult := []fileDetails{}
 
+	needSlash := "/"
+	if len(relativePath) > 0 && relativePath[len(relativePath)-1] == '/' {
+		needSlash = ""
+	}
+
 	for _, file := range files {
 		if !canBeListed(unlisted, file.Name()) {
 			continue
@@ -489,16 +509,17 @@ func (state HandlerState) renderDirectory(current string, relativePath string, a
 		filePath := path.Join(absolutePath, file.Name())
 
 		details := fileDetails{
-			base:  path.Base(file.Name()),
-			name:  file.Name(),
-			ext:   path.Ext(file.Name()),
-			dir:   path.Dir(file.Name()),
-			isDir: file.IsDir(),
+			Base:     path.Base(file.Name()),
+			Name:     file.Name(),
+			Ext:      path.Ext(file.Name()),
+			Dir:      path.Dir(file.Name()),
+			IsDir:    file.IsDir(),
+			Relative: relativePath + needSlash + file.Name(),
 		}
 
 		if file.IsDir() {
-			details.base += slashSuffix
-			details.relative += slashSuffix
+			details.Base += slashSuffix
+			details.Relative += slashSuffix
 		} else if canRenderSingle {
 			return renderDirResult{
 				singleFile:   true,
@@ -507,10 +528,10 @@ func (state HandlerState) renderDirectory(current string, relativePath string, a
 			}, nil
 		}
 
-		if details.ext != "" {
-			details.ext = details.ext[1:]
+		if details.Ext != "" {
+			details.Ext = details.Ext[1:]
 		} else {
-			details.ext = "txt"
+			details.Ext = "txt"
 		}
 
 		// 			details.size = bytes(stats.size, {
@@ -518,7 +539,7 @@ func (state HandlerState) renderDirectory(current string, relativePath string, a
 		// 				decimalPlaces: 0
 		// 			});
 		// 		}
-		details.title = details.base
+		details.Title = details.Base
 
 		fileResult = append(fileResult, details)
 	}
@@ -568,38 +589,41 @@ func (state HandlerState) renderDirectory(current string, relativePath string, a
 		return renderDirResult{}, err
 	}
 	directory := path.Join(filepath.Base(current), toRoot, slashSuffix)
-	pathParts := filepath.SplitList(directory)
+	pathParts := strings.Split(relativePath, "/")
 
-	subPaths := []pathPart{}
-	parents := ""
-	for idx, path := range pathParts {
+	fmt.Println(pathParts)
 
-		if idx != len(pathParts)-1 {
-			path += "/"
-		}
-		subPaths = append(subPaths, pathPart{
+	breadcrumbs := []breadcrumbsType{
+		{
+			Name: strings.Split(directory, "/")[0],
+			Url:  "/",
+		},
+	}
+	parents := "/"
+
+	for _, path := range pathParts[1 : len(pathParts)-1] {
+		breadcrumbs = append(breadcrumbs, breadcrumbsType{
 			Name: path,
-			Url:  parents,
+			Url:  parents + path + "/",
 		})
 
-		if parents == "" {
-			parents = path
-		} else {
-			parents += "/" + path
-		}
+		parents += path + "/"
 	}
+	fmt.Println(breadcrumbs)
 
 	type returnType struct {
-		directory string
-		paths     []pathPart
-		files     []fileDetails
+		Directory string
+		Index     []breadcrumbsType
+		Paths     []pathPart
+		Files     []fileDetails
 	}
 
 	return renderDirResult{
 		outputData: returnType{
-			files:     fileResult,
-			directory: directory,
-			paths:     subPaths,
+			Index:     breadcrumbs,
+			Files:     fileResult,
+			Directory: directory,
+			// Paths:     subPaths,
 		},
 	}, nil
 }
@@ -617,7 +641,8 @@ func canBeListed(excluded []string, file string) bool {
 }
 
 func findRelated(current string, relativePath string, rewrittenPath *string) (os.FileInfo, string) {
-	possible := []string{}
+	var possible []string
+
 	if rewrittenPath == nil || *rewrittenPath == "" {
 		possible = getPossiblePaths(relativePath, ".html")
 	} else {

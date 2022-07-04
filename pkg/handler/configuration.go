@@ -10,7 +10,11 @@ type Configuration = struct {
 	NoCleanUrls bool
 	CleanUrls   []string        `json:"cleanUrls"`
 	Rewrites    []ConfigRewrite `json:"rewrites"`
-	Redirects   []struct {
+	Proxy       []struct {
+		Source      string `json:"source" validate:"min=1"`
+		Destination string `json:"destination" validate:"min=1"`
+	} `json:"proxy"`
+	Redirects []struct {
 		Source      string `json:"source" validate:"min=1"`
 		Destination string `json:"destination" validate:"min=1"`
 		Type        int    `json:"type"`

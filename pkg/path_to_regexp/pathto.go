@@ -78,6 +78,8 @@ type PathMatcher interface {
 	MatchString(string) (bool, Result)
 }
 
+// PathToRegexp converts a path to a tokenized regular expression
+// based on `:NAME` tokens.
 func PathToRegexp(path string, options Options) (PathMatcher, error) {
 	matcher := matcherParser{}
 	err := matcher.tokensToRegExp(parse(path, options), &matcher.keys, options)
