@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/NYTimes/gziphandler"
+	"github.com/go-chi/chi/v5"
 	"github.com/koblas/swerver/pkg/minimatch"
 	pathToRegExp "github.com/koblas/swerver/pkg/path_to_regexp"
 )
@@ -22,13 +22,15 @@ type HandlerState struct {
 	logger Logger
 }
 
-func NewHandler(config Configuration) http.Handler {
+// Implements http.Handler
+func NewHandler(config Configuration) HandlerState {
 	state := HandlerState{
 		Configuration: config,
 		logger:        NewLogger(config.Debug),
 	}
 
-	return gziphandler.GzipHandler(state)
+	// return gziphandler.GzipHandler(state)
+	return state
 }
 
 func acceptJSON(r *http.Request) bool {
@@ -677,4 +679,14 @@ func getPossiblePaths(relativePath, extension string) []string {
 	}
 
 	return entries
+}
+
+func (state HandlerState) AttachRoutes(router chi.Router) {
+	filesDir := http.Dir(state.Public)
+
+	for _, item := range state.Proxy {
+		router.Handle(item.Source, NewProxy(item.Destination))
+	}
+
+	router.Get("/*", state.sendFile(filesDir))
 }

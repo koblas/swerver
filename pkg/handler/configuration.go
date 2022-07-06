@@ -6,11 +6,14 @@ type ConfigRewrite = struct {
 }
 
 type Configuration = struct {
-	Public      string `json:"public"`
+	// Directory for static content
+	Public string `json:"public"`
+
 	NoCleanUrls bool
-	CleanUrls   []string        `json:"cleanUrls"`
-	Rewrites    []ConfigRewrite `json:"rewrites"`
-	Proxy       []struct {
+	CleanUrls   []string `json:"cleanUrls"`
+
+	Rewrites []ConfigRewrite `json:"rewrites"`
+	Proxy    []struct {
 		Source      string `json:"source" validate:"min=1"`
 		Destination string `json:"destination" validate:"min=1"`
 	} `json:"proxy"`
@@ -19,6 +22,7 @@ type Configuration = struct {
 		Destination string `json:"destination" validate:"min=1"`
 		Type        int    `json:"type"`
 	} `json:"redirects"`
+
 	Headers []struct {
 		Source  string `json:"source" validate:"min=1,max=100"`
 		Headers []struct {

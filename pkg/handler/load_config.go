@@ -65,20 +65,21 @@ func LoadServeConfiguration(filepath string) (Configuration, error) {
 		}
 	}
 
-	if data.CleanUrls != nil {
-		var boolValue bool
-		var strValue []string
+	// if data.CleanUrls != nil {
+	// 	var boolValue bool
+	// 	var strValue []string
 
-		if err := json.Unmarshal(data.CleanUrls, &boolValue); err == nil {
-			config.NoCleanUrls = !boolValue
-		} else if err := json.Unmarshal(data.CleanUrls, &strValue); err == nil {
-			config.CleanUrls = strValue
-		}
-	}
+	// 	if err := json.Unmarshal(data.CleanUrls, &boolValue); err == nil {
+	// 		config.NoCleanUrls = !boolValue
+	// 	} else if err := json.Unmarshal(data.CleanUrls, &strValue); err == nil {
+	// 		config.CleanUrls = strValue
+	// 	}
+	// }
 
-	config.Rewrites = data.Rewrites
-	config.Redirects = data.Redirects
-	config.Headers = data.Headers
+	// config.Rewrites = data.Rewrites
+	// config.Redirects = data.Redirects
+	// config.Headers = data.Headers
+	config.Proxy = data.Proxy
 
 	if data.DirectoryListing != nil {
 		var boolValue bool
@@ -94,21 +95,23 @@ func LoadServeConfiguration(filepath string) (Configuration, error) {
 	if data.Unlisted != nil {
 		config.Unlisted = *data.Unlisted
 	}
-	// Always append these
-	config.Unlisted = append(config.Unlisted, ".DS_Store", ".git")
+	// Provide senible defaults for these
+	if len(config.Unlisted) == 0 {
+		config.Unlisted = append(config.Unlisted, ".DS_Store", ".git")
+	}
 
-	config.TrailingSlash = true
-	if data.TrailingSlash != nil {
-		config.TrailingSlash = *data.TrailingSlash
-	}
+	// config.TrailingSlash = true
+	// if data.TrailingSlash != nil {
+	// 	config.TrailingSlash = *data.TrailingSlash
+	// }
 	config.RenderSingle = data.RenderSingle
-	if config.RenderSingle {
-		config.Rewrites = append(config.Rewrites, ConfigRewrite{
-			Source:      "**",
-			Destination: "/index.html",
-		})
-	}
-	config.Symlinks = data.Symlinks
+	// if config.RenderSingle {
+	// 	config.Rewrites = append(config.Rewrites, ConfigRewrite{
+	// 		Source:      "**",
+	// 		Destination: "/index.html",
+	// 	})
+	// }
+	// config.Symlinks = data.Symlinks
 	config.Ssl = data.Ssl
 
 	return config, nil
