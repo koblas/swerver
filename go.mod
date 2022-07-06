@@ -1,11 +1,12 @@
 module github.com/koblas/swerver
 
-go 1.17
+go 1.18
 
 require (
 	github.com/Delta456/box-cli-maker/v2 v2.2.1
-	github.com/NYTimes/gziphandler v1.1.1
+	github.com/go-chi/chi/v5 v5.0.7
 	github.com/jessevdk/go-flags v1.5.0
+	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.6.1
 	gopkg.in/go-playground/validator.v9 v9.31.0
 )

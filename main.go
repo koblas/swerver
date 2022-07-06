@@ -12,6 +12,9 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/koblas/swerver/pkg/handler"
 	_ "gopkg.in/go-playground/validator.v9"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 func loadConfig(path *string) handler.Configuration {
@@ -115,11 +118,22 @@ func main() {
 		// 	color.Info.Sprintf("http://%s:%s", "localhost", *item)))
 
 		listener := func() {
-			mux := http.NewServeMux()
-			mux.Handle("/", handler.NewHandler(config))
+			// mux := http.NewServeMux()
+			// mux.Handle("/", handler.NewHandler(config))
+
+			h := handler.NewHandler(config)
+
+			router := chi.NewRouter()
+			router.Use(middleware.Logger)
+			if !config.NoCompression {
+				router.Use(middleware.Compress(5))
+			}
+
+			h.AttachRoutes(router)
+
 			server := http.Server{
 				Addr:    fmt.Sprintf(":%s", *item),
-				Handler: mux,
+				Handler: router,
 			}
 
 			if config.Ssl.KeyFile != "" && config.Ssl.CertFile != "" {
