@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -113,6 +114,9 @@ func LoadServeConfiguration(filepath string) (Configuration, error) {
 	// }
 	// config.Symlinks = data.Symlinks
 	config.Ssl = data.Ssl
+
+	b, _ := json.Marshal(config)
+	fmt.Println(string(b))
 
 	return config, nil
 }

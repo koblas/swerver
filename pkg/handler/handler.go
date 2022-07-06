@@ -684,9 +684,13 @@ func getPossiblePaths(relativePath, extension string) []string {
 func (state HandlerState) AttachRoutes(router chi.Router) {
 	filesDir := http.Dir(state.Public)
 
+	hasCatchall := false
 	for _, item := range state.Proxy {
 		router.Handle(item.Source, NewProxy(item.Destination))
+		hasCatchall = hasCatchall || (item.Source == "/*")
 	}
-
-	router.Get("/*", state.sendFile(filesDir))
+	// Default
+	if !hasCatchall {
+		router.Get("/*", state.sendFile(filesDir))
+	}
 }

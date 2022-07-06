@@ -11,28 +11,27 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-var hopHeaders = []string{
-	"Connection",
-	"Keep-Alive",
-	"Proxy-Authenticate",
-	"Proxy-Authorization",
-	"Te", // canonicalized version of "TE"
-	"Trailers",
-	"Transfer-Encoding",
-	"Upgrade",
+type Set map[string]struct{}
+
+var hopHeaders = Set{
+	"Connection":          {},
+	"Keep-Alive":          {},
+	"Proxy-Authenticate":  {},
+	"Proxy-Authorization": {},
+	"Te":                  {}, // canonicalized version of "TE"
+	"Trailers":            {},
+	"Transfer-Encoding":   {},
+	"Upgrade":             {},
 }
 
-func copyHeader(dst, src http.Header) {
+func copyHeader(dst, src http.Header, omitHeaders Set) {
 	for k, vv := range src {
+		if _, found := omitHeaders[k]; found {
+			continue
+		}
 		for _, v := range vv {
 			dst.Add(k, v)
 		}
-	}
-}
-
-func delHopHeaders(header http.Header) {
-	for _, h := range hopHeaders {
-		header.Del(h)
 	}
 }
 
@@ -78,14 +77,13 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 
 		return
 	}
-	client := &http.Client{}
-
-	// delHopHeaders(req.Header)
+	copyHeader(newreq.Header, req.Header, Set{})
 
 	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
 		appendHostToXForwardHeader(newreq.Header, clientIP)
 	}
 
+	client := &http.Client{}
 	resp, err := client.Do(newreq)
 	if err != nil {
 		http.Error(wr, "Server Error", http.StatusInternalServerError)
@@ -93,9 +91,7 @@ func (p *proxy) ServeHTTP(wr http.ResponseWriter, req *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	delHopHeaders(resp.Header)
-
-	copyHeader(wr.Header(), resp.Header)
+	copyHeader(wr.Header(), resp.Header, hopHeaders)
 	wr.WriteHeader(resp.StatusCode)
 	io.Copy(wr, resp.Body)
 }
